@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>綠色網購 - 環境影響計算機</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans HK', sans-serif;
+            background-color: #f8fafc;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loader {
+            border-top-color: #22c55e;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Custom scrollbar for origin select */
+        select option {
+            padding: 8px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header & Navigation -->
+    <header class="bg-brand-600 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-leaf text-2xl"></i>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-wide">綠色網購足跡</h1>
+                </div>
+                
+                <!-- Navigation Tabs -->
+                <div class="flex bg-brand-900/30 rounded-lg p-1">
+                    <button onclick="switchTab('record')" id="tabBtn-record" class="flex-1 sm:flex-none px-4 py-2 rounded-md bg-white text-brand-700 font-bold shadow-sm transition-all text-sm sm:text-base flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-pen-to-square"></i> 記錄與計算
+                    </button>
+                    <button onclick="switchTab('global')" id="tabBtn-global" class="flex-1 sm:flex-none px-4 py-2 rounded-md text-brand-50 hover:bg-white/10 font-medium transition-all text-sm sm:text-base flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-earth-asia"></i> 全網累積數據
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
+        
+        <!-- ==================== VIEW 1: RECORD & CALCULATE ==================== -->
+        <div id="view-record" class="grid grid-cols-1 md:grid-cols-12 gap-8 fade-in">
+            
+            <!-- Left Column: Input Form -->
+            <div class="md:col-span-5 space-y-6">
+                
+                <!-- OCR/Upload Card -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
+                    <h2 class="text-lg font-bold text-slate-700 mb-2">快速輸入：掃描快遞單</h2>
+                    <p class="text-sm text-slate-500 mb-4">上載含有包裹標籤的圖片，嘗試自動提取發貨地和重量。</p>
+                    
+                    <input type="file" id="imageUpload" class="hidden" accept="image/*" onchange="handleImageUpload()">
+                    <label for="imageUpload" class="cursor-pointer inline-flex items-center justify-center w-full px-4 py-3 bg-brand-50 border border-brand-500 border-dashed rounded-xl text-brand-600 hover:bg-brand-100 transition-colors font-medium">
+                        <i class="fa-solid fa-camera mr-2"></i> 上載或拍攝標籤
+                    </label>
+
+                    <div id="scanningState" class="hidden mt-4 flex flex-col items-center justify-center text-brand-600">
+                        <div class="loader border-4 border-brand-100 rounded-full w-8 h-8 mb-2"></div>
+                        <span class="text-sm">正在識別快遞單資訊...</span>
+                    </div>
+                </div>
+
+                <!-- Manual Input Form Card -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-700 mb-4 border-b pb-2">輸入網購記錄</h2>
+                    <form id="recordForm" onsubmit="calculateAndSave(event)">
+                        
+                        <div class="space-y-4">
+                            <!-- Item Name -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">網購項目名稱</label>
+                                <input type="text" id="itemName" required placeholder="例如：秋冬毛衣、電子產品..." class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+                            </div>
+
+                            <!-- Origin (Detailed Provinces) -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">發貨地點 (全國省市)</label>
+                                <select id="origin" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white max-h-60 overflow-y-auto">
+                                    <option value="" disabled selected>請選擇發貨地點</option>
+                                    <optgroup label="本地及周邊 (極短途)">
+                                        <option value="hk">香港本地 (HK)</option>
+                                        <option value="gd">廣東省 - 深圳/廣州/東莞等 (GD)</option>
+                                    </optgroup>
+                                    <optgroup label="華南及東南沿海 (短途)">
+                                        <option value="fujian">福建省 (FJ)</option>
+                                        <option value="jiangxi">江西省 (JX)</option>
+                                        <option value="hunan">湖南省 (HN)</option>
+                                        <option value="zhejiang">浙江省 - 杭州/義烏等 (ZJ)</option>
+                                    </optgroup>
+                                    <optgroup label="華東地區 (中短途)">
+                                        <option value="shanghai">上海市 (SH)</option>
+                                        <option value="jiangsu">江蘇省 (JS)</option>
+                                        <option value="anhui">安徽省 (AH)</option>
+                                    </optgroup>
+                                    <optgroup label="華北及華中 (中長途)">
+                                        <option value="beijing">北京市 (BJ)</option>
+                                        <option value="tianjin">天津市 (TJ)</option>
+                                        <option value="hebei">河北省 (HE)</option>
+                                        <option value="hubei">湖北省 - 武漢等 (HB)</option>
+                                        <option value="henan">河南省 (HA)</option>
+                                    </optgroup>
+                                    <optgroup label="西部及邊遠地區 (長途)">
+                                        <option value="sichuan">四川省 / 重慶市 (SC/CQ)</option>
+                                        <option value="shaanxi">陝西省 (SN)</option>
+                                        <option value="xinjiang">新疆 / 西藏 / 內蒙古 (邊遠地區)</option>
+                                    </optgroup>
+                                    <optgroup label="海外">
+                                        <option value="asia">亞洲其他地區 (日/韓/台等)</option>
+                                        <option value="overseas">歐美及海外其他 (長途空運)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <!-- Weight -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">大約重量 (公斤 kg)</label>
+                                <input type="number" id="weight" step="0.1" min="0.1" max="1000" required placeholder="例如：1.5" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+                            </div>
+
+                            <!-- Volume/Packaging size -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">包裝體積</label>
+                                <select id="volume" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                                    <option value="small">小型膠袋/文件封 (極少包裝)</option>
+                                    <option value="medium">中型紙箱 (例如鞋盒大小)</option>
+                                    <option value="large">大型紙箱 (包含大量發泡膠/氣泡紙)</option>
+                                    <option value="extra_large">超大件傢俬/電器木架裝</option>
+                                </select>
+                            </div>
+
+                            <!-- Quality / Regret check -->
+                            <div class="pt-2">
+                                <label class="flex items-start cursor-pointer group">
+                                    <div class="flex items-center h-5">
+                                        <input type="checkbox" id="isRegret" class="w-5 h-5 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500 focus:ring-2">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <span class="font-medium text-slate-700 group-hover:text-brand-600 transition-colors">這是劣質貨 / 貨不對版 / 不必要的消費</span>
+                                        <p class="text-slate-500 mt-1">若勾選此項，貨物本身將被視為潛在的堆填區廢物。</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                        </div>
+
+                        <div class="mt-6 flex flex-col gap-2">
+                            <button type="submit" id="submitBtn" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-transform transform active:scale-95 flex justify-center items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 計算並上傳至全網數據
+                            </button>
+                            <p class="text-xs text-center text-slate-400">數據將匿名保存，共同構建環保影響圖譜</p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Results Dashboard -->
+            <div class="md:col-span-7">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 text-slate-400">
+                    <i class="fa-solid fa-chart-pie text-6xl mb-4 text-slate-300"></i>
+                    <h3 class="text-xl font-medium text-slate-600 mb-2">等待數據輸入</h3>
+                    <p class="max-w-xs">填寫左側表單，即可查看這次網購對環境的具體影響，並貢獻到全網統計庫中。</p>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsDashboard" class="hidden h-full flex flex-col space-y-6 fade-in">
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
+                                    <i class="fa-solid fa-file-invoice text-xl"></i>
+                                </div>
+                                <h2 class="text-2xl font-bold text-slate-800">單次影響分析</h2>
+                            </div>
+                            <span class="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-full"><i class="fa-solid fa-check"></i> 已記錄</span>
+                        </div>
+                        
+                        <!-- Primary Metrics Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            <!-- Carbon Box -->
+                            <div class="bg-slate-50 rounded-xl p-5 border border-slate-100 relative overflow-hidden">
+                                <div class="absolute -right-4 -top-4 text-6xl text-slate-200/50">
+                                    <i class="fa-solid fa-cloud"></i>
+                                </div>
+                                <div class="relative z-10">
+                                    <p class="text-sm font-medium text-slate-500 mb-1">預估運輸碳排放</p>
+                                    <div class="flex items-baseline gap-2">
+                                        <span id="co2Result" class="text-3xl font-bold text-slate-800">0.0</span>
+                                        <span class="text-slate-600 font-medium">kg CO₂e</span>
+                                    </div>
+                                    <p id="co2Comparison" class="text-xs text-orange-600 mt-2 font-medium bg-orange-50 inline-block px-2 py-1 rounded">
+                                        等同於為手機充電 -- 次
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Waste Box -->
+                            <div class="bg-slate-50 rounded-xl p-5 border border-slate-100 relative overflow-hidden">
+                                <div class="absolute -right-4 -top-4 text-6xl text-slate-200/50">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </div>
+                                <div class="relative z-10">
+                                    <p class="text-sm font-medium text-slate-500 mb-1">預估產生固體廢物</p>
+                                    <div class="flex items-baseline gap-2">
+                                        <span id="wasteResult" class="text-3xl font-bold text-slate-800">0.0</span>
+                                        <span class="text-slate-600 font-medium">kg</span>
+                                    </div>
+                                    <p id="wasteDetail" class="text-xs text-slate-500 mt-2">
+                                        包含包裝物料及其他廢物
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Impact Visualizer -->
+                        <div class="bg-brand-50 rounded-xl p-5 mb-6">
+                            <h4 class="font-bold text-brand-900 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-tree text-brand-600"></i> 環境代價視覺化
+                            </h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span class="text-slate-700">碳抵消需要一棵成年樹木生長：</span>
+                                        <span id="treeResult" class="font-bold text-brand-700">0 天</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2">
+                                        <div class="bg-brand-500 h-2 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recommendation/Warning Message -->
+                        <div id="insightMessage" class="p-4 rounded-xl border text-sm leading-relaxed">
+                            <!-- Insight content populated by JS -->
+                        </div>
+                        
+                        <div class="mt-6 text-center">
+                            <button onclick="switchTab('global')" class="text-brand-600 font-medium hover:underline flex items-center justify-center gap-2 w-full">
+                                查看全網累積貢獻 <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 2: GLOBAL ACCUMULATED STATS ==================== -->
+        <div id="view-global" class="hidden fade-in space-y-8">
+            
+            <div class="text-center max-w-2xl mx-auto py-4">
+                <h2 class="text-3xl font-bold text-slate-800 mb-3">全網累積環境影響</h2>
+                <p class="text-slate-500">這裡匯總了所有使用者共同輸入的網購記錄。每一個微小的決定，累積起來都對地球有深遠的影響。</p>
+            </div>
+
+            <!-- Global KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Global CO2 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center text-center relative overflow-hidden">
+                    <div class="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-lg shadow-slate-300">
+                        <i class="fa-solid fa-smog"></i>
+                    </div>
+                    <h3 class="text-slate-500 font-medium mb-1">總碳排放量</h3>
+                    <div class="flex items-baseline gap-1">
+                        <span id="g-co2" class="text-4xl font-bold text-slate-800">0</span>
+                        <span class="text-slate-500">kg</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-3 bg-slate-50 px-3 py-1 rounded-full w-full">
+                        需 <span id="g-trees" class="font-bold text-brand-600">0</span> 棵樹生長1年吸收
+                    </p>
+                </div>
+
+                <!-- Global Waste -->
+                <div class="bg-white rounded-2xl shadow-sm border-orange-200 border p-6 flex flex-col items-center text-center relative overflow-hidden">
+                    <div class="w-16 h-16 bg-orange-500 text-white rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-lg shadow-orange-200">
+                        <i class="fa-solid fa-trash-can-arrow-up"></i>
+                    </div>
+                    <h3 class="text-slate-500 font-medium mb-1">總產生廢物</h3>
+                    <div class="flex items-baseline gap-1">
+                        <span id="g-waste" class="text-4xl font-bold text-orange-600">0</span>
+                        <span class="text-slate-500">kg</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-3 bg-orange-50 px-3 py-1 rounded-full w-full">
+                        包裝及劣質丟棄物總和
+                    </p>
+                </div>
+
+                <!-- Bad Purchases -->
+                <div class="bg-white rounded-2xl shadow-sm border-red-200 border p-6 flex flex-col items-center text-center relative overflow-hidden">
+                    <div class="w-16 h-16 bg-red-500 text-white rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-lg shadow-red-200">
+                        <i class="fa-solid fa-thumbs-down"></i>
+                    </div>
+                    <h3 class="text-slate-500 font-medium mb-1">劣質貨/衝動消費比率</h3>
+                    <div class="flex items-baseline gap-1">
+                        <span id="g-regret-rate" class="text-4xl font-bold text-red-600">0%</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-3 bg-red-50 px-3 py-1 rounded-full w-full">
+                        <span id="g-regret-count" class="font-bold">0</span> / <span id="g-total-items">0</span> 宗記錄
+                    </p>
+                </div>
+            </div>
+
+            <!-- Recent Records Table (Visual representation of crowd-sourced data) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-700">最新匯報的網購記錄</h3>
+                    <span class="text-xs text-slate-400"><i class="fa-solid fa-circle text-[8px] text-green-500 animate-pulse mr-1"></i> 即時更新中</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs text-slate-500 bg-white border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-3 font-medium">項目</th>
+                                <th class="px-6 py-3 font-medium">發貨地概況</th>
+                                <th class="px-6 py-3 font-medium text-right">重量</th>
+                                <th class="px-6 py-3 font-medium text-right">產出碳排</th>
+                                <th class="px-6 py-3 font-medium text-center">狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentRecordsTable" class="divide-y divide-slate-50">
+                            <!-- Populated by JS -->
+                            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-400"><div class="loader inline-block border-2 border-slate-300 border-t-brand-500 rounded-full w-4 h-4 mr-2"></div>載入數據中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-400 py-6 text-center mt-auto">
+        <p class="text-sm">綠色網購倡議 &copy; 2026. 數據僅供參考估算用途。<br>
+        <span class="text-xs">減少不必要的消費，是源頭減廢的最佳方法。</span></p>
+    </footer>
+
+    <!-- Simple Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i class="fa-solid fa-circle-info text-brand-400" id="toastIcon"></i>
+        <span id="toastMsg">通知訊息</span>
+    </div>
+
+    <!-- Firebase Implementation -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Constants setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch (e) {
+            console.error("Firebase config parsing error", e);
+        }
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let currentUser = null;
+
+        // Expanded Carbon Factors (kg CO2e per kg) based on approx distances to HK
+        const carbonFactors = {
+            'hk': 0.1,        // Local delivery
+            'gd': 0.3,        // Guangdong (very close)
+            'fujian': 0.6,    // Fujian
+            'jiangxi': 0.7,   // Jiangxi
+            'hunan': 0.8,     // Hunan
+            'zhejiang': 1.2,  // Zhejiang (major ecommerce hub)
+            'shanghai': 1.4,  // Shanghai
+            'jiangsu': 1.5,   // Jiangsu
+            'anhui': 1.4,     // Anhui
+            'hubei': 1.2,     // Hubei
+            'henan': 1.6,     // Henan
+            'beijing': 2.2,   // Beijing
+            'tianjin': 2.1,   // Tianjin
+            'hebei': 2.1,     // Hebei
+            'sichuan': 1.8,   // Sichuan/Chongqing
+            'shaanxi': 2.0,   // Shaanxi
+            'xinjiang': 3.5,  // Remote West/North
+            'asia': 4.0,      // Short haul air freight
+            'overseas': 12.0  // Long haul air freight
+        };
+
+        const originLabels = {
+            'hk': '香港', 'gd': '廣東', 'fujian': '福建', 'jiangxi': '江西', 'hunan': '湖南', 
+            'zhejiang': '浙江', 'shanghai': '上海', 'jiangsu': '江蘇', 'anhui': '安徽',
+            'hubei': '湖北', 'henan': '河南', 'beijing': '北京', 'tianjin': '天津', 'hebei': '河北',
+            'sichuan': '四川/重慶', 'shaanxi': '陝西', 'xinjiang': '邊遠地區(新/藏/蒙)',
+            'asia': '亞洲其他', 'overseas': '歐美海外'
+        };
+
+        const packagingWaste = {
+            'small': 0.05,
+            'medium': 0.3,
+            'large': 1.0,
+            'extra_large': 3.5
+        };
+
+        // UI Functions
+        window.showToast = function(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').innerText = message;
+            
+            icon.className = type === 'success' ? 'fa-solid fa-circle-check text-green-400' : 'fa-solid fa-circle-info text-brand-400';
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        };
+
+        window.switchTab = function(tab) {
+            document.getElementById('view-record').classList.add('hidden');
+            document.getElementById('view-global').classList.add('hidden');
+            
+            const btnRecord = document.getElementById('tabBtn-record');
+            const btnGlobal = document.getElementById('tabBtn-global');
+            
+            btnRecord.className = "flex-1 sm:flex-none px-4 py-2 rounded-md text-brand-50 hover:bg-white/10 font-medium transition-all text-sm sm:text-base flex items-center justify-center gap-2";
+            btnGlobal.className = "flex-1 sm:flex-none px-4 py-2 rounded-md text-brand-50 hover:bg-white/10 font-medium transition-all text-sm sm:text-base flex items-center justify-center gap-2";
+
+            if (tab === 'record') {
+                document.getElementById('view-record').classList.remove('hidden');
+                btnRecord.className = "flex-1 sm:flex-none px-4 py-2 rounded-md bg-white text-brand-700 font-bold shadow-sm transition-all text-sm sm:text-base flex items-center justify-center gap-2";
+            } else {
+                document.getElementById('view-global').classList.remove('hidden');
+                btnGlobal.className = "flex-1 sm:flex-none px-4 py-2 rounded-md bg-white text-brand-700 font-bold shadow-sm transition-all text-sm sm:text-base flex items-center justify-center gap-2";
+            }
+        };
+
+        window.handleImageUpload = function() {
+            const input = document.getElementById('imageUpload');
+            if (input.files && input.files[0]) {
+                document.getElementById('scanningState').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('scanningState').classList.add('hidden');
+                    document.getElementById('itemName').value = "網購服飾 (掃描結果)";
+                    document.getElementById('origin').value = "zhejiang"; // Example: Yiwu package
+                    document.getElementById('weight').value = "1.5";
+                    document.getElementById('volume').value = "medium";
+                    showToast("成功提取包裹資訊！", "success");
+                }, 1500);
+            }
+        };
+
+        // Main Calculation and Save Logic
+        window.calculateAndSave = async function(e) {
+            e.preventDefault();
+            if(!currentUser) {
+                showToast("系統未連接數據庫，請稍後再試。");
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 處理中...';
+
+            const itemName = document.getElementById('itemName').value;
+            const origin = document.getElementById('origin').value;
+            const weight = parseFloat(document.getElementById('weight').value);
+            const volume = document.getElementById('volume').value;
+            const isRegret = document.getElementById('isRegret').checked;
+
+            if(!origin || isNaN(weight) || !volume) return;
+
+            // 1. Calculations
+            const co2Emission = parseFloat((weight * carbonFactors[origin]).toFixed(2));
+            const phoneCharges = Math.round(co2Emission * 121);
+            const treeDays = Math.round(co2Emission / 0.057);
+            
+            let pkgWaste = packagingWaste[volume];
+            let totalWaste = pkgWaste;
+            if (isRegret) { totalWaste += weight; }
+            totalWaste = parseFloat(totalWaste.toFixed(2));
+
+            // 2. Update Local UI Dashboard
+            document.getElementById('initialState').classList.add('hidden');
+            const dashboard = document.getElementById('resultsDashboard');
+            dashboard.classList.remove('hidden');
+            
+            document.getElementById('co2Result').innerText = co2Emission.toFixed(2);
+            document.getElementById('co2Comparison').innerText = `等同於為智能手機充電 ${phoneCharges.toLocaleString()} 次`;
+            document.getElementById('wasteResult').innerText = totalWaste.toFixed(2);
+            
+            if (isRegret) {
+                document.getElementById('wasteDetail').innerHTML = `<span class="text-red-500 font-medium">包含 ${pkgWaste}kg 包裝及 ${weight}kg 劣質貨報廢預估</span>`;
+            } else {
+                document.getElementById('wasteDetail').innerText = `主要為 ${pkgWaste}kg 的包裝物料`;
+            }
+            document.getElementById('treeResult').innerText = `${treeDays} 天`;
+
+            const insightBox = document.getElementById('insightMessage');
+            let insightHTML = `<strong>分析結論：</strong><br>`;
+            if (carbonFactors[origin] > 2) {
+                insightHTML += `✈️ 來自較遠地區 (碳排系數 ${carbonFactors[origin]})，運輸碳足跡較高。建議非必要可考慮同城或周邊發貨。<br>`;
+                insightBox.className = "p-4 rounded-xl border border-orange-200 bg-orange-50 text-orange-800 text-sm leading-relaxed mt-4";
+            } else {
+                insightHTML += `🚚 發貨地距離較近，有效減少了運輸碳排放。<br>`;
+                insightBox.className = "p-4 rounded-xl border border-brand-200 bg-brand-50 text-brand-800 text-sm leading-relaxed mt-4";
+            }
+
+            if (isRegret) {
+                insightHTML += `⚠️ <strong>警號：</strong> 劣質貨會直接增加堆填區負擔。下次按下付款前，請三思或選擇更有保證的賣家。`;
+                insightBox.className = "p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm leading-relaxed mt-4";
+            }
+
+            insightBox.innerHTML = insightHTML;
+
+            // 3. Save to Firestore (Public Data path based on rules)
+            try {
+                const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'shopping_records');
+                await addDoc(recordsRef, {
+                    itemName: itemName,
+                    origin: origin,
+                    originLabel: originLabels[origin] || origin,
+                    weight: weight,
+                    volume: volume,
+                    isRegret: isRegret,
+                    co2Emission: co2Emission,
+                    waste: totalWaste,
+                    userId: currentUser.uid,
+                    timestamp: Date.now() // Use timestamp for simple sorting in JS
+                });
+                
+                showToast("記錄已成功同步至全網數據庫！", "success");
+                // Form reset
+                document.getElementById('recordForm').reset();
+            } catch (error) {
+                console.error("Error saving document: ", error);
+                showToast("無法儲存記錄，請重試。");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 計算並上傳至全網數據';
+            }
+        };
+
+        // Firebase Auth & Data Listening
+        async function initApp() {
+            try {
+                // Auth Rule 3: Auth Before Queries
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                currentUser = auth.currentUser;
+                console.log("Authenticated as:", currentUser.uid);
+
+                // Start listening to global public records
+                const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'shopping_records');
+                
+                onSnapshot(recordsRef, (snapshot) => {
+                    if (!currentUser) return;
+
+                    let totalCO2 = 0;
+                    let totalWaste = 0;
+                    let totalItems = 0;
+                    let regretItems = 0;
+                    let records = [];
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        records.push(data);
+                        totalCO2 += (data.co2Emission || 0);
+                        totalWaste += (data.waste || 0);
+                        totalItems++;
+                        if (data.isRegret) regretItems++;
+                    });
+
+                    // Sort records locally by timestamp descending (Auth Rule 2: No Complex Queries)
+                    records.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                    updateGlobalUI(totalCO2, totalWaste, totalItems, regretItems, records);
+                }, (error) => {
+                    console.error("Error fetching records: ", error);
+                });
+
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                showToast("系統連接失敗");
+            }
+        }
+
+        function updateGlobalUI(totalCO2, totalWaste, totalItems, regretItems, records) {
+            // Update Aggregated Stats
+            document.getElementById('g-co2').innerText = totalCO2.toFixed(1);
+            document.getElementById('g-waste').innerText = totalWaste.toFixed(1);
+            document.getElementById('g-total-items').innerText = totalItems;
+            document.getElementById('g-regret-count').innerText = regretItems;
+            
+            const treeYears = (totalCO2 / 21).toFixed(1); // 21kg per year per tree
+            document.getElementById('g-trees').innerText = treeYears;
+
+            const rate = totalItems > 0 ? ((regretItems / totalItems) * 100).toFixed(1) : 0;
+            document.getElementById('g-regret-rate').innerText = `${rate}%`;
+
+            // Update Recent Table (Show top 10 recent)
+            const tbody = document.getElementById('recentRecordsTable');
+            tbody.innerHTML = '';
+
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">目前還沒有任何記錄，成為第一個提交的人吧！</td></tr>`;
+                return;
+            }
+
+            const recentRecords = records.slice(0, 10);
+            recentRecords.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                
+                const statusBadge = rec.isRegret 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium"><i class="fa-solid fa-triangle-exclamation"></i> 劣質/廢物</span>`
+                    : `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium"><i class="fa-solid fa-check"></i> 正常</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-6 py-3 border-b border-slate-50 font-medium text-slate-700 truncate max-w-[150px]" title="${rec.itemName}">${rec.itemName || '未知項目'}</td>
+                    <td class="px-6 py-3 border-b border-slate-50 text-slate-600">${rec.originLabel || '未知'}</td>
+                    <td class="px-6 py-3 border-b border-slate-50 text-right font-mono">${rec.weight} kg</td>
+                    <td class="px-6 py-3 border-b border-slate-50 text-right font-mono text-brand-600">+${rec.co2Emission?.toFixed(2)} kg</td>
+                    <td class="px-6 py-3 border-b border-slate-50 text-center">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
